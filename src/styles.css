@@ -2095,6 +2095,24 @@ a.mosaic-item {
   rotate: 1.1deg;
 }
 
+.behind-scenes {
+  background: var(--paper);
+  padding-bottom: clamp(82px, 10vw, 150px);
+  padding-top: clamp(82px, 10vw, 150px);
+}
+
+.behind-scenes-grid {
+  display: grid;
+  gap: 12px;
+  grid-auto-flow: dense;
+  grid-auto-rows: 210px;
+  grid-template-columns: 1.35fr 0.78fr 0.95fr;
+}
+
+.behind-scenes-item {
+  margin: 0;
+}
+
 .skills-section {
   display: grid;
   gap: 42px;
@@ -2889,6 +2907,10 @@ footer a:hover {
     grid-template-columns: 1fr 1fr;
   }
 
+  .behind-scenes-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .random-wall {
     grid-template-columns: 1fr 1fr;
   }
@@ -3050,6 +3072,10 @@ footer a:hover {
 
   .experience-card h3 {
     margin-top: 12px;
+  }
+
+  .behind-scenes-grid {
+    grid-template-columns: 1fr;
   }
 
   .random-wall,

@@ -368,6 +368,15 @@ let skills: Array<[string, number]> = [
   ["After Effects", 73],
 ];
 
+const behindTheScenesPhotos = [
+  { src: asset("studio/davita-portrait.jpg"), title: "Montagekamer" },
+  { src: asset("work/work-10.jpg"), title: "Portretmoment" },
+  { src: asset("portfolio-gallery/haco/screenshot-01.png"), title: "Setbeelden" },
+  { src: asset("video-posters/video-05.jpg"), title: "Eventstill" },
+  { src: asset("portfolio-gallery/allianz/woonsituatie.jpg"), title: "Campagnebeeld" },
+  { src: asset("work/work-11.jpg"), title: "Redactionele sfeer" },
+];
+
 type RemoteProject = WorkItem & {
   category?: PortfolioCategory;
   featured?: boolean;
@@ -968,6 +977,24 @@ function SkillSlider() {
   );
 }
 
+function BehindTheScenesGallery() {
+  return (
+    <section className="behind-scenes page-pad">
+      <div className="section-heading reveal">
+        <TypewriterEyebrow text="Behind the scenes" />
+        <h2>Momenten achter het beeld.</h2>
+      </div>
+      <div className="behind-scenes-grid">
+        {behindTheScenesPhotos.map((photo, index) => (
+          <figure className={`portfolio-board-item behind-scenes-item board-${(index % 6) + 1} reveal`} key={photo.src}>
+            <img src={photo.src} alt={photo.title} loading="lazy" />
+          </figure>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function Home() {
   useReveal();
   const homeTitle = setting("home_hero_title", "Video-editor & grafisch ontwerper.");
@@ -1431,6 +1458,7 @@ function Experience() {
           ))}
         </div>
       </section>
+      <BehindTheScenesGallery />
       <SkillSlider />
     </main>
   );
