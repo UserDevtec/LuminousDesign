@@ -16,11 +16,28 @@ type WorkItem = {
 
 type PortfolioCategory = "graphic" | "photo" | "social";
 type VideoCategory = "verhaal" | "campagne" | "event";
-type VideoItem = [string, string, string, string, string, VideoCategory];
+type VideoKind = "file" | "embed";
+type VideoItem = [string, string, string, string, string, VideoCategory, VideoKind, string];
 
-const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, "")}`;
+declare global {
+  interface Window {
+    STUDIODAVITA_ASSET_BASE?: string;
+    STUDIODAVITA_REST_URL?: string;
+    STUDIODAVITA_CONTENT_VERSION?: string;
+  }
+}
 
-const graphicWork: WorkItem[] = [
+const assetBase = () => window.STUDIODAVITA_ASSET_BASE ?? import.meta.env.BASE_URL;
+const asset = (path: string) => `${assetBase()}${path.replace(/^\/+/, "")}`;
+
+let heroPortrait = asset("studio/davita-portrait.jpg");
+let portfolioCategoryOverrides: Record<string, PortfolioCategory> = {};
+let siteSettings: Record<string, string> = {};
+let contactFormHtml = "";
+let headerLogo = asset("StudioDavita_logo-iconen-05.svg");
+const setting = (key: string, fallback: string) => siteSettings[key] || fallback;
+
+let graphicWork: WorkItem[] = [
   {
     title: "Grafisch ontwerp",
     type: "Print & campagne",
@@ -61,7 +78,7 @@ const graphicWork: WorkItem[] = [
   },
 ];
 
-const featuredProjects: WorkItem[] = [
+let featuredProjects: WorkItem[] = [
   ...graphicWork,
   {
     title: "Redactionele layout",
@@ -132,7 +149,7 @@ const featuredProjects: WorkItem[] = [
   },
 ];
 
-const gallery = [
+let gallery = [
   asset("work/work-01.png"),
   asset("work/work-02.png"),
   asset("work/work-03.png"),
@@ -147,14 +164,14 @@ const gallery = [
   asset("work/work-22.png"),
 ];
 
-const videos: VideoItem[] = [
+let videos: VideoItem[] = [
   ["Stamceldonoren bedankt!", "01:11", "Een korte film over hoop, donoren en het verschil maken.", asset("videos/video-01.mp4"), asset("video-posters/video-01.jpg"), "verhaal"],
   ["Een bijzondere verjaardag voor Brian", "03:24", "Een persoonlijk verhaal rond een stamceldonor en een nieuwe toekomst.", asset("videos/video-02.mp4"), asset("video-posters/video-02.jpg"), "verhaal"],
   ["Jungheinrich, het eldorado voor servicemonteurs.", "01:57", "Werkgeversverhaal met tempo, waardering en een heldere boodschap.", asset("videos/video-03.mp4"), asset("video-posters/video-03.jpg"), "campagne"],
   ["HVDZ Trakteer jezelf op Leiden", "00:31", "Campagne voor de binnenstad promotie van Leiden.", asset("videos/video-04.mp4"), asset("video-posters/video-04.jpg"), "campagne"],
   ["One Young World 2018 | Unilever", "04:06", "Eventverhaal rond jonge leiders en positieve impact.", asset("videos/video-05.mp4"), asset("video-posters/video-05.jpg"), "event"],
   ["Dit zijn wij | Geert", "01:00", "Een compact karakterverhaal voor Dirk Kuyt Foundation.", asset("videos/video-06.mp4"), asset("video-posters/video-06.jpg"), "verhaal"],
-];
+].map(([title, duration, description, src, poster, category]) => [title, duration, description, src, poster, category, "file", ""] as VideoItem);
 
 const videoFilters: Array<{ id: VideoCategory; label: string; description: string }> = [
   { id: "verhaal", label: "Verhalen", description: "Menselijke films met ritme en gevoel" },
@@ -169,8 +186,8 @@ const slugify = (value: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 
-const rotatingProjects = featuredProjects.slice(0, 8);
-const rainProjects = [
+let rotatingProjects = featuredProjects.slice(0, 8);
+let rainProjects = [
   ...featuredProjects,
   {
     title: "Portfoliodetail",
@@ -214,7 +231,7 @@ const rainProjects = [
   },
 ];
 
-const portfolioProjects = rainProjects;
+let portfolioProjects = rainProjects;
 const portfolioSlugAliases: Record<string, string> = {
   "graphic-design": "grafisch-ontwerp",
   photography: "fotografie",
@@ -246,6 +263,7 @@ const portfolioFilters: Array<{ id: PortfolioCategory; label: string; descriptio
 ];
 
 const portfolioCategoryFor = (project: WorkItem): PortfolioCategory => {
+  if (project.slug && portfolioCategoryOverrides[project.slug]) return portfolioCategoryOverrides[project.slug];
   if (project.slug === "fotografie") return "photo";
   if (["sociale-content", "campagnebeelden", "merksignalen", "visuele-set"].includes(project.slug ?? "")) return "social";
   return "graphic";
@@ -263,7 +281,7 @@ function VideoCategoryIcon({ category }: { category: VideoCategory }) {
   return <Film size={20} />;
 }
 
-const standoutProjects = [
+let standoutProjects = [
   {
     project: portfolioProjects.find((item) => item.slug === "grafisch-ontwerp")!,
     eyebrow: "Uitgelicht project",
@@ -305,9 +323,15 @@ const standoutProjects = [
   },
 ];
 
-const clientLogos = ["NOVA FRAME", "LUMA HOUSE", "CANAL EDITS", "FORMA STUDIO", "BRIGHT NORTH", "MOTION VALE"];
+type ClientLogo = {
+  name: string;
+  logo: string;
+  url?: string;
+};
 
-const projectRain = rainProjects.map((project, index) => {
+let clientLogos: ClientLogo[] = [];
+
+const buildProjectRain = (projects: WorkItem[]) => projects.map((project, index) => {
   const patterns = [
     ["1%", "0.92", "20s", "0s", "-3deg", "2deg"],
     ["31%", "1.04", "22s", "-3.5s", "2deg", "-2deg"],
@@ -325,7 +349,9 @@ const projectRain = rainProjects.map((project, index) => {
   return { ...project, x, scale, duration, delay, rotateStart, rotateEnd };
 });
 
-const experience = [
+let projectRain = buildProjectRain(rainProjects);
+
+let experience = [
   ["2021 - heden", "Therapieland", "Creatief ontwerper", "Conceptontwikkeling en creatie van visuele middelen voor print, digitaal en social media, met focus op mentale gezondheid en welzijn."],
   ["2019 - 2021", "Captains", "Videomaker & grafisch ontwerper", "Werk voor klanten als PostNL, Fox Sports, Universal, YoungCapital, ANWB, Allianz Direct en meer."],
   ["2017 - 2020", "Omroep West", "Freelance video-editor", "Montage van dagelijkse en wekelijkse programma's, events, commercials en aftermovies."],
@@ -334,13 +360,230 @@ const experience = [
   ["2014 - 2017", "Walt Disney Company", "Motion design stagiair & operations-assistent", "Promo repacking, bumpers, endboards en ondersteuning van on-air workflows."],
 ];
 
-const skills = [
+let skills: Array<[string, number]> = [
   ["Premiere Pro", 92],
   ["Photoshop", 87],
   ["InDesign", 82],
   ["Illustrator", 78],
   ["After Effects", 73],
 ];
+
+type RemoteProject = WorkItem & {
+  category?: PortfolioCategory;
+  featured?: boolean;
+  standout?: {
+    eyebrow?: string;
+    goal?: string;
+    impact?: string;
+    assignment?: string;
+    images?: string[];
+  };
+};
+
+type RemoteVideo = {
+  title: string;
+  duration?: string;
+  description?: string;
+  video?: string;
+  poster?: string;
+  category?: VideoCategory;
+  kind?: VideoKind;
+  embed?: string;
+};
+
+type RemoteContent = {
+  heroImage?: string;
+  headerLogo?: string;
+  favicon?: string;
+  contentVersion?: string;
+  projects?: RemoteProject[];
+  videos?: RemoteVideo[];
+  clients?: Array<string | ClientLogo>;
+  experience?: Array<{ company?: string; period?: string; role?: string; text?: string }>;
+  skills?: Array<[string, number] | { title?: string; name?: string; level?: number }>;
+  settings?: Record<string, string>;
+  contactFormHtml?: string;
+};
+
+function formatVideoDuration(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "";
+  const totalSeconds = Math.round(seconds);
+  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
+}
+
+function VideoDuration({ src, fallback = "" }: { src: string; fallback?: string }) {
+  const [duration, setDuration] = useState(fallback);
+
+  useEffect(() => {
+    setDuration(fallback);
+  }, [fallback, src]);
+
+  return (
+    <span>
+      {duration || "Video"}
+      <video
+        src={src}
+        preload="metadata"
+        muted
+        playsInline
+        aria-hidden="true"
+        style={{ display: "none" }}
+        onLoadedMetadata={(event) => {
+          const formatted = formatVideoDuration(event.currentTarget.duration);
+          if (formatted) setDuration(formatted);
+        }}
+      />
+    </span>
+  );
+}
+
+function videoPreviewSrc(src: string, kind: VideoKind, embed = "") {
+  if (kind !== "embed") return src;
+  const target = embed || src;
+  if (!target) return "";
+  const separator = target.includes("?") ? "&" : "?";
+  return `${target}${separator}autoplay=1&muted=1&mute=1&controls=0&loop=1&playsinline=1`;
+}
+
+function VideoPreview({ title, src, poster, kind, embed = "", interactive = false }: { title: string; src: string; poster: string; kind: VideoKind; embed?: string; interactive?: boolean }) {
+  if (kind === "embed") {
+    const preview = videoPreviewSrc(src, kind, embed);
+    return preview ? (
+      <iframe
+        src={preview}
+        title={title}
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowFullScreen
+        loading="lazy"
+        referrerPolicy="strict-origin-when-cross-origin"
+        tabIndex={interactive ? 0 : -1}
+      />
+    ) : (
+      <div className="video-embed-placeholder">{title}</div>
+    );
+  }
+
+  return (
+    <video
+      src={src}
+      poster={poster}
+      muted
+      loop
+      preload="metadata"
+      playsInline
+      aria-label={title}
+    />
+  );
+}
+
+function makeStandoutProjects(projects: RemoteProject[]) {
+  const selected = projects.filter((project) => project.featured || project.standout).slice(0, 3);
+  const fallback = selected.length > 0 ? selected : projects.slice(0, 3);
+
+  return fallback.map((project) => ({
+    project,
+    eyebrow: project.standout?.eyebrow ?? "Uitgelicht project",
+    images: project.standout?.images?.length ? project.standout.images : [project.image, ...(project.gallery ?? [])].filter(Boolean).slice(0, 4),
+    goal: project.standout?.goal ?? project.note,
+    impact: project.standout?.impact ?? project.detail ?? project.note,
+    assignment: project.standout?.assignment ?? project.type,
+  }));
+}
+
+function applyRemoteContent(content: RemoteContent) {
+  if (content.settings) {
+    siteSettings = content.settings;
+  }
+
+  if (typeof content.contactFormHtml === "string") {
+    contactFormHtml = content.contactFormHtml;
+  }
+
+  if (content.heroImage) {
+    heroPortrait = content.heroImage;
+  }
+
+  if (content.headerLogo) {
+    headerLogo = content.headerLogo;
+  }
+
+  if (content.favicon) {
+    let icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!icon) {
+      icon = document.createElement("link");
+      icon.rel = "icon";
+      document.head.appendChild(icon);
+    }
+    icon.href = content.favicon;
+  }
+
+  if (Array.isArray(content.projects) && content.projects.length > 0) {
+    const projects = content.projects
+      .filter((project) => project.title && project.image)
+      .map((project) => ({
+        ...project,
+        slug: project.slug ?? slugify(project.title),
+        gallery: project.gallery ?? [],
+      }));
+
+    if (projects.length === 0) {
+      return;
+    }
+
+    portfolioCategoryOverrides = Object.fromEntries(
+      projects
+        .filter((project) => project.slug && project.category)
+        .map((project) => [project.slug as string, project.category as PortfolioCategory])
+    );
+
+    graphicWork = projects.filter((project) => portfolioCategoryFor(project) === "graphic").slice(0, 3);
+    featuredProjects = projects;
+    gallery = projects.map((project) => project.image);
+    rotatingProjects = projects.slice(0, 8);
+    rainProjects = projects;
+    portfolioProjects = projects;
+    standoutProjects = makeStandoutProjects(projects);
+    projectRain = buildProjectRain(projects);
+  }
+
+  if (Array.isArray(content.videos) && content.videos.length > 0) {
+    videos = content.videos
+      .filter((video) => video.title && video.video)
+      .map((video) => [
+        video.title,
+        video.duration ?? "",
+        video.description ?? "",
+        video.video ?? "",
+        video.poster ?? "",
+        video.category ?? "verhaal",
+        video.kind === "embed" ? "embed" : "file",
+        video.embed ?? "",
+      ]);
+  }
+
+  if (Array.isArray(content.clients) && content.clients.length > 0) {
+    clientLogos = content.clients
+      .map((client) => (typeof client === "string" ? { name: client, logo: "" } : client))
+      .filter((client): client is ClientLogo => Boolean(client.name && client.logo));
+  }
+
+  if (Array.isArray(content.experience) && content.experience.length > 0) {
+    experience = content.experience
+      .map((item) => [
+        item.period ?? "",
+        item.company ?? "",
+        item.role ?? "",
+        item.text ?? "",
+      ] as [string, string, string, string])
+      .filter(([, company]) => company);
+  }
+
+  if (Array.isArray(content.skills) && content.skills.length > 0) {
+    skills = content.skills
+      .map((skill) => (Array.isArray(skill) ? skill : [skill.title ?? skill.name ?? "", Number(skill.level ?? 0)] as [string, number]))
+      .filter(([title]) => title);
+  }
+}
 
 function useReveal(deps: React.DependencyList = []) {
   useEffect(() => {
@@ -360,6 +603,7 @@ function useReveal(deps: React.DependencyList = []) {
 
 function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [, setContentVersion] = useState(0);
   const { pathname } = useLocation();
 
   useEffect(() => {
@@ -370,12 +614,45 @@ function Layout() {
     document.title = getPageTitle(pathname);
   }, [pathname]);
 
+  useEffect(() => {
+    if (!window.STUDIODAVITA_REST_URL) return;
+
+    let cancelled = false;
+
+    const restUrl = new URL(window.STUDIODAVITA_REST_URL, window.location.href);
+    if (window.STUDIODAVITA_CONTENT_VERSION) {
+      restUrl.searchParams.set("cv", window.STUDIODAVITA_CONTENT_VERSION);
+    }
+    restUrl.searchParams.set("_", String(Date.now()));
+
+    fetch(restUrl.toString(), {
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+      },
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((content: RemoteContent | null) => {
+        if (!content || cancelled) return;
+        applyRemoteContent(content);
+        setContentVersion((version) => version + 1);
+      })
+      .catch(() => {
+        // Keep static fallback content when WordPress content is not available.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <>
       <ScrollToTop />
       <header className="site-header">
         <Link className="brand" to="/" aria-label="StudioDavita startpagina">
-          <img src={asset("StudioDavita_logo-iconen-05.svg")} alt="StudioDavita" />
+          <img src={headerLogo} alt="StudioDavita" />
         </Link>
         <button
           className={`menu-toggle${menuOpen ? " is-open" : ""}`}
@@ -588,6 +865,10 @@ function KineticChip() {
 
 function FeaturedPortfolioCarousel() {
   const active = standoutProjects[0];
+  if (!active?.project?.image) {
+    return null;
+  }
+
   const project = active.project;
   const supportingImages = active.images;
 
@@ -635,54 +916,8 @@ function FeaturedPortfolioCarousel() {
   );
 }
 
-function ClientLogoMark({ name, index }: { name: string; index: number }) {
-  const variant = index % 6;
-
-  return (
-    <span className="client-wordmark" aria-label={name}>
-      <svg className={`client-logo-svg client-logo-svg-${variant}`} viewBox="0 0 220 92" aria-hidden="true">
-        <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
-          {variant === 0 && (
-            <>
-              <path d="M18 46h46M42 18v56M78 23h30c17 0 28 9 28 23s-11 23-28 23H78z" strokeWidth="8" />
-              <path d="M152 25h36M152 46h50M152 67h36" strokeWidth="7" />
-            </>
-          )}
-          {variant === 1 && (
-            <>
-              <circle cx="43" cy="46" r="27" strokeWidth="8" />
-              <path d="M78 66c18-34 42-34 62 0M154 24h38M154 46h52M154 68h38" strokeWidth="7" />
-            </>
-          )}
-          {variant === 2 && (
-            <>
-              <path d="M20 69 50 22l30 47M32 52h36M104 24v44h50M174 24v44h28" strokeWidth="8" />
-            </>
-          )}
-          {variant === 3 && (
-            <>
-              <path d="M22 24h56v44H22zM94 24h32c16 0 26 9 26 22s-10 22-26 22H94z" strokeWidth="8" />
-              <path d="M172 24c18 0 27 44 40 44" strokeWidth="7" />
-            </>
-          )}
-          {variant === 4 && (
-            <>
-              <path d="M24 68V24h48c16 0 26 8 26 20s-10 20-26 20H24M122 24v44M146 24l44 44M190 24l-44 44" strokeWidth="8" />
-            </>
-          )}
-          {variant === 5 && (
-            <>
-              <path d="M22 46c22-28 44-28 66 0s44 28 66 0 34-28 48 0" strokeWidth="8" />
-              <path d="M26 69h176" strokeWidth="7" />
-            </>
-          )}
-        </g>
-      </svg>
-    </span>
-  );
-}
-
 function ClientLogoSlider() {
+  if (clientLogos.length === 0) return null;
   const logos = [...clientLogos, ...clientLogos];
 
   return (
@@ -694,9 +929,15 @@ function ClientLogoSlider() {
       <div className="logo-marquee reveal">
         <div className="logo-track">
           {logos.map((logo, index) => (
-            <span className="client-logo" key={`${logo}-${index}`}>
-              <ClientLogoMark name={logo} index={index} />
-            </span>
+            logo.url ? (
+              <a className="client-logo" href={logo.url} target="_blank" rel="noopener noreferrer" key={`${logo.name}-${index}`}>
+                <img src={logo.logo} alt={logo.name} />
+              </a>
+            ) : (
+              <span className="client-logo" key={`${logo.name}-${index}`}>
+                <img src={logo.logo} alt={logo.name} />
+              </span>
+            )
           ))}
         </div>
       </div>
@@ -729,15 +970,22 @@ function SkillSlider() {
 
 function Home() {
   useReveal();
+  const homeTitle = setting("home_hero_title", "Video-editor & grafisch ontwerper.");
+
   return (
     <main>
       <section className="home-hero page-pad">
         <div className="hero-copy reveal">
-          <TypewriterEyebrow text="Mijn naam is Davita." />
-          <h1><span className="hero-title-rose">Video-editor</span> & grafisch <span className="hero-title-yellow">ontwerper.</span></h1>
+          <TypewriterEyebrow text={setting("home_eyebrow", "Mijn naam is Davita.")} />
+          <h1>
+            {homeTitle === "Video-editor & grafisch ontwerper." ? (
+              <><span className="hero-title-rose">Video-editor</span> & grafisch <span className="hero-title-yellow">ontwerper.</span></>
+            ) : (
+              homeTitle
+            )}
+          </h1>
           <p className="intro">
-            StudioDavita is het portfolio van Davita: creatief ontwerp, videomontage, bewegend ontwerp
-            en visuele verhalen voor merken, campagnes en sociale content.
+            {setting("home_hero_text", "StudioDavita is het portfolio van Davita: creatief ontwerp, videomontage, bewegend ontwerp en visuele verhalen voor merken, campagnes en sociale content.")}
           </p>
           <div className="hero-actions">
             <Link className="button primary" to="/portfolio">
@@ -751,7 +999,7 @@ function Home() {
         </div>
 
         <div className="kinetic-board reveal" aria-label="Portret van Davita">
-          <img className="hero-portrait" src={asset("studio/davita-portrait.jpg")} alt="Portret van Davita" />
+          <img className="hero-portrait" src={heroPortrait} alt="Portret van Davita" />
           <KineticChip />
         </div>
       </section>
@@ -817,7 +1065,11 @@ function Portfolio() {
 
   return (
     <main>
-      <PageIntro eyebrow="Portfolio" title="Mijn nieuwste werk." text="Een bewust gemengde collectie grafisch ontwerp, fotografie, merk ontwikkeling, print en sociale content uit het huidige StudioDavita portfolio." />
+      <PageIntro
+        eyebrow={setting("portfolio_eyebrow", "Portfolio")}
+        title={setting("portfolio_title", "Mijn nieuwste werk.")}
+        text={setting("portfolio_text", "Een bewust gemengde collectie grafisch ontwerp, fotografie, merk ontwikkeling, print en sociale content uit het huidige StudioDavita portfolio.")}
+      />
       <section className="case-section page-pad">
         <div className="portfolio-filter-panel reveal" aria-label="Portfolio filter">
           {portfolioFilters.map((filter) => {
@@ -862,7 +1114,11 @@ function Video() {
 
   return (
     <main>
-      <PageIntro eyebrow="Videografie" title="Verhalen met tempo, helderheid en gevoel." text="Geselecteerd videomontage- en vertelwerk uit het bestaande StudioDavita portfolio." />
+      <PageIntro
+        eyebrow={setting("video_eyebrow", "Videografie")}
+        title={setting("video_title", "Verhalen met tempo, helderheid en gevoel.")}
+        text={setting("video_text", "Geselecteerd videomontage- en vertelwerk uit het bestaande StudioDavita portfolio.")}
+      />
       <section className="video-filter-section page-pad">
         <div className="portfolio-filter-panel video-filter-panel reveal" aria-label="Videofilter">
           {videoFilters.map((filter) => {
@@ -891,10 +1147,10 @@ function Video() {
 
       <section className="video-section page-pad">
         <div className="video-grid">
-          {filteredVideos.map(([title, duration, note, src, poster], index) => (
+          {filteredVideos.map(([title, duration, note, src, poster, , kind, embed], index) => (
             <Link className="video-card reveal" to={`/video/${slugify(title)}`} key={title}>
               <div
-                className="video-preview"
+                className={`video-preview${kind === "embed" ? " is-embed" : ""}`}
                 onMouseEnter={(event) => {
                   const video = event.currentTarget.querySelector("video");
                   if (video) void video.play();
@@ -906,20 +1162,12 @@ function Video() {
                   video.currentTime = 0;
                 }}
               >
-                <video
-                  src={src}
-                  poster={poster}
-                  muted
-                  loop
-                  preload="metadata"
-                  playsInline
-                  aria-label={title}
-                />
+                <VideoPreview title={title} src={src} poster={poster} kind={kind} embed={embed} />
                 <div className="video-play-badge">
                   <Play size={18} fill="currentColor" />
                 </div>
               </div>
-              <span>{duration}</span>
+              {kind === "file" ? <VideoDuration src={src} fallback={duration} /> : <span>{duration || "Embed"}</span>}
               <h3>{title}</h3>
               <p>{note}</p>
               <small>{String(index + 1).padStart(2, "0")} / Videomontage & verhalen</small>
@@ -1041,6 +1289,7 @@ function VideoDetail() {
   const storyPanelRef = useRef<HTMLElement | null>(null);
   const playerRef = useRef<HTMLVideoElement | null>(null);
   const [suggestionHeight, setSuggestionHeight] = useState<number | undefined>();
+  const [videoDuration, setVideoDuration] = useState("");
   useReveal();
 
   useLayoutEffect(() => {
@@ -1070,11 +1319,16 @@ function VideoDetail() {
     );
   }
 
-  const [title, duration, note, src, poster] = video;
+  const [title, duration, note, src, poster, , kind, embed] = video;
   const relatedVideos = videos.filter(([itemTitle]) => itemTitle !== title);
   const related = relatedVideos[Math.floor(Math.random() * relatedVideos.length)];
 
   useEffect(() => {
+    if (kind === "embed") {
+      setVideoDuration("");
+      return;
+    }
+
     const player = playerRef.current;
     if (!player) return;
     player.muted = false;
@@ -1093,19 +1347,34 @@ function VideoDetail() {
 
     player.addEventListener("loadeddata", play, { once: true });
     return () => player.removeEventListener("loadeddata", play);
-  }, [src]);
+  }, [src, kind]);
 
   return (
     <main>
       <section className="detail-hero video-detail page-pad reveal">
         <div className="detail-copy">
-          <TypewriterEyebrow text={`Video / ${duration}`} />
+          <TypewriterEyebrow text={`Video / ${videoDuration || duration || "Bekijk verhaal"}`} />
           <h1>{title}</h1>
           <p className="intro">{note}</p>
           <Link className="button secondary" to="/video">Terug naar video's</Link>
         </div>
         <div className="detail-media video-player">
-          <video ref={playerRef} src={src} poster={poster} controls autoPlay playsInline />
+          {kind === "embed" ? (
+            <VideoPreview title={title} src={src} poster={poster} kind={kind} embed={embed} interactive />
+          ) : (
+            <video
+              ref={playerRef}
+              src={src}
+              poster={poster}
+              controls
+              autoPlay
+              playsInline
+              onLoadedMetadata={(event) => {
+                const formatted = formatVideoDuration(event.currentTarget.duration);
+                if (formatted) setVideoDuration(formatted);
+              }}
+            />
+          )}
         </div>
       </section>
       <section className="detail-body video-detail-body page-pad">
@@ -1141,7 +1410,11 @@ function Experience() {
   useReveal();
   return (
     <main>
-      <PageIntro eyebrow="Ervaring" title="Creatief werk voor media, campagnes en uitzending." text="Een loopbaan gevormd door ontwerp, montage, beweging en verhalen voor merken, media en social campagnes." />
+      <PageIntro
+        eyebrow={setting("experience_eyebrow", "Ervaring")}
+        title={setting("experience_title", "Creatief werk voor media, campagnes en uitzending.")}
+        text={setting("experience_text", "Een loopbaan gevormd door ontwerp, montage, beweging en verhalen voor merken, media en social campagnes.")}
+      />
       <section className="experience-studio page-pad">
         <div className="experience-cards">
           {experience.map(([date, company, role, text], index) => (
@@ -1164,47 +1437,48 @@ function Experience() {
 }
 
 function Contact() {
-  useReveal();
+  const hasServerForm = contactFormHtml.trim() !== "";
+  useReveal([hasServerForm, contactFormHtml]);
   return (
     <main>
       <section className="contact-page page-pad">
         <div className="contact-intro reveal">
           <div>
-            <TypewriterEyebrow text="Contact" />
-            <h1>Laten we iets maken dat blijft hangen.</h1>
-            <p className="intro">Vertel Davita over het idee, de campagne of het visuele verhaal dat je wilt vormgeven.</p>
+            <TypewriterEyebrow text={setting("contact_eyebrow", "Contact")} />
+            <h1>{setting("contact_title", "Laten we iets maken dat blijft hangen.")}</h1>
+            <p className="intro">{setting("contact_text", "Vertel Davita over het idee, de campagne of het visuele verhaal dat je wilt vormgeven.")}</p>
           </div>
         </div>
-        <form className="contact-form reveal" action="mailto:luminousdavita@gmail.com" method="post" encType="text/plain">
-          <label>
-            <span>Naam</span>
-            <input name="name" type="text" autoComplete="name" placeholder="Je naam" />
-          </label>
-          <label>
-            <span>E-mail</span>
-            <input name="email" type="email" autoComplete="email" placeholder="jij@voorbeeld.nl" />
-          </label>
-          <label className="full">
-            <span>Projecttype</span>
-            <select name="projectType" defaultValue="">
-              <option value="" disabled>Kies een richting</option>
-              <option>Grafisch ontwerp</option>
-              <option>Videomontage</option>
-              <option>Bewegend ontwerp</option>
-              <option>Fotografie</option>
-              <option>Anders</option>
-            </select>
-          </label>
-          <label className="full">
-            <span>Bericht</span>
-            <textarea name="message" rows={7} placeholder="Vertel kort iets over het project..." />
-          </label>
-          <button className="button primary" type="submit">Bericht versturen</button>
-        </form>
-        <div className="contact-note reveal">
-          <span>Liever mailen?</span>
-          <a href="mailto:luminousdavita@gmail.com">luminousdavita@gmail.com</a>
-        </div>
+        {hasServerForm ? (
+          <div className="contact-form-shell" dangerouslySetInnerHTML={{ __html: contactFormHtml }} />
+        ) : (
+          <form className="contact-form reveal" action={`mailto:${setting("contact_email", "luminousdavita@gmail.com")}`} method="post" encType="text/plain">
+            <label>
+              <span>Naam</span>
+              <input name="name" type="text" autoComplete="name" placeholder="Je naam" />
+            </label>
+            <label>
+              <span>E-mail</span>
+              <input name="email" type="email" autoComplete="email" placeholder="jij@voorbeeld.nl" />
+            </label>
+            <label className="full">
+              <span>Projecttype</span>
+              <select name="projectType" defaultValue="">
+                <option value="" disabled>Kies een richting</option>
+                <option>Grafisch ontwerp</option>
+                <option>Videomontage</option>
+                <option>Bewegend ontwerp</option>
+                <option>Fotografie</option>
+                <option>Anders</option>
+              </select>
+            </label>
+            <label className="full">
+              <span>Bericht</span>
+              <textarea name="message" rows={7} placeholder="Vertel kort iets over het project..." />
+            </label>
+            <button className="button primary" type="submit">{setting("contact_button_text", "Bericht versturen")}</button>
+          </form>
+        )}
       </section>
     </main>
   );
@@ -1251,9 +1525,11 @@ function PageIntro({ eyebrow, title, text }: { eyebrow: string; title: string; t
 }
 
 function Footer() {
+  const currentYear = new Date().getFullYear();
   return (
     <footer>
-      <span>© 2026 StudioDavita</span>
+      <span>© {currentYear} StudioDavita</span>
+      <span>{setting("footer_text", "StudioDavita maakt grafisch ontwerp, video en visuele verhalen.")}</span>
       <a href="https://devtec.nl" target="_blank" rel="noreferrer">
         Gemaakt door Devtec
       </a>
